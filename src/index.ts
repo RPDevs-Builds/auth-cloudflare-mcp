@@ -2,29 +2,27 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpAgent } from "agents/mcp";
 import { z } from "zod";
 
+// 1. Define the Durable Object Agent
 export class MyMCP extends McpAgent {
 	server = new McpServer({
 		name: "Secure Edge Calculator",
 		version: "1.0.0",
 	});
 
-	// 🛡️ SECURITY GATEWAY: Intercept requests before they hit the MCP engine
+	// 🛡️ SECURITY GATEWAY
 	async fetch(request: Request) {
 		const url = new URL(request.url);
 		const token = url.searchParams.get("token");
 
-		// Compare the incoming token to your Cloudflare encrypted secret
-		// @ts-ignore - Bypass strict TS if Env is not fully mapped in worker-configuration.d.ts
+		// @ts-ignore - Bypass strict TS for dynamic Env mapping
 		if (token !== this.env.MCP_SECRET_KEY) {
 			return new Response("Unauthorized: Invalid or missing token", { status: 401 });
 		}
 
-		// If authorized, pass the request to the underlying MCP Agent handler
 		return super.fetch(request);
 	}
 
 	async init() {
-		// Simple addition tool
 		this.server.registerTool(
 			"add",
 			{ inputSchema: { a: z.number(), b: z.number() } },
@@ -33,7 +31,6 @@ export class MyMCP extends McpAgent {
 			}),
 		);
 
-		// Calculator tool with multiple operations
 		this.server.registerTool(
 			"calculate",
 			{
@@ -56,15 +53,7 @@ export class MyMCP extends McpAgent {
 						result = a * b;
 						break;
 					case "divide":
-						if (b === 0)
-							return {
-								content: [
-									{
-										type: "text",
-										text: "Error: Cannot divide by zero",
-									},
-								],
-							};
+						if (b === 0) return { content: [{ type: "text", text: "Error: Cannot divide by zero" }] };
 						result = a / b;
 						break;
 				}
@@ -73,3 +62,13 @@ export class MyMCP extends McpAgent {
 		);
 	}
 }
+
+// 2. 🚀 THE MISSING ES MODULE ENTRYPOINT 🚀
+export default {
+	async fetch(request: Request, env: any, ctx: any) {
+		// Route the incoming HTTP request from the Edge directly to the Durable Object
+		const id = env.MCP_OBJECT.idFromName("default-agent");
+		const stub = env.MCP_OBJECT.get(id);
+		return stub.fetch(request);
+	}
+};
