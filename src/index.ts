@@ -9,16 +9,31 @@ export class MyMCP extends McpAgent {
 		version: "1.0.0",
 	});
 
-	// 🛡️ SECURITY GATEWAY
+	// 🛡️ OAUTH RESOURCE SERVER: Intercept and Validate the JWT
 	async fetch(request: Request) {
-		const url = new URL(request.url);
-		const token = url.searchParams.get("token");
+		const authHeader = request.headers.get("Authorization");
 
-		// @ts-ignore - Bypass strict TS for dynamic Env mapping
-		if (token !== this.env.MCP_SECRET_KEY) {
-			return new Response("Unauthorized: Invalid or missing token", { status: 401 });
+		// 1. Ensure the request has a Bearer token
+		if (!authHeader || !authHeader.startsWith("Bearer ")) {
+			return new Response("Unauthorized: Missing Bearer Token", { status: 401 });
 		}
 
+		const token = authHeader.split(" ")[1];
+
+		// 2. Ping your T430 Authentik instance to validate the token
+		// NOTE: Change 'auth.iamrp.dev' if your external Authentik URL differs
+		const authCheck = await fetch("https://auth.iamrp.dev/application/o/userinfo/", {
+			headers: {
+				"Authorization": `Bearer ${token}`
+			}
+		});
+
+		// 3. Reject the request if Authentik says the token is invalid or expired
+		if (!authCheck.ok) {
+			return new Response("Unauthorized: OAuth Token rejected by Authentik", { status: 403 });
+		}
+
+		// 4. If authorized, pass the request to the underlying MCP Engine
 		return super.fetch(request);
 	}
 
@@ -26,9 +41,7 @@ export class MyMCP extends McpAgent {
 		this.server.registerTool(
 			"add",
 			{ inputSchema: { a: z.number(), b: z.number() } },
-			async ({ a, b }) => ({
-				content: [{ type: "text", text: String(a + b) }],
-			}),
+			async ({ a, b }) => ({\n\t\t\t\tcontent: [{ type: "text", text: String(a + b) }],\n\t\t\t}),
 		);
 
 		this.server.registerTool(
@@ -63,7 +76,7 @@ export class MyMCP extends McpAgent {
 	}
 }
 
-// 2. 🚀 THE MISSING ES MODULE ENTRYPOINT 🚀
+// 2. 🚀 ES MODULE ENTRYPOINT 🚀
 export default {
 	async fetch(request: Request, env: any, ctx: any) {
 		// Route the incoming HTTP request from the Edge directly to the Durable Object
