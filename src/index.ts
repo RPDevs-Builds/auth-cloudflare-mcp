@@ -2,12 +2,26 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpAgent } from "agents/mcp";
 import { z } from "zod";
 
-// Define our MCP agent with tools
 export class MyMCP extends McpAgent {
 	server = new McpServer({
-		name: "Authless Calculator",
+		name: "Secure Edge Calculator",
 		version: "1.0.0",
 	});
+
+	// 🛡️ SECURITY GATEWAY: Intercept requests before they hit the MCP engine
+	async fetch(request: Request) {
+		const url = new URL(request.url);
+		const token = url.searchParams.get("token");
+
+		// Compare the incoming token to your Cloudflare encrypted secret
+		// @ts-ignore - Bypass strict TS if Env is not fully mapped in worker-configuration.d.ts
+		if (token !== this.env.MCP_SECRET_KEY) {
+			return new Response("Unauthorized: Invalid or missing token", { status: 401 });
+		}
+
+		// If authorized, pass the request to the underlying MCP Agent handler
+		return super.fetch(request);
+	}
 
 	async init() {
 		// Simple addition tool
@@ -55,19 +69,7 @@ export class MyMCP extends McpAgent {
 						break;
 				}
 				return { content: [{ type: "text", text: String(result) }] };
-			},
+			}
 		);
 	}
 }
-
-export default {
-	fetch(request: Request, env: Env, ctx: ExecutionContext) {
-		const url = new URL(request.url);
-
-		if (url.pathname === "/mcp") {
-			return MyMCP.serve("/mcp").fetch(request, env, ctx);
-		}
-
-		return new Response("Not found", { status: 404 });
-	},
-};
