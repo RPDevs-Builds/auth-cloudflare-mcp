@@ -35,7 +35,7 @@
 	// Maps the worker exclusively to your requested Zero-Trust namespace
 	"routes": [
 		{
-			"pattern": "auth.cloudflare.mcp.iamrp.dev",
+			"pattern": "authless.cloudflare.mcp.iamrp.dev",
 			"custom_domain": true
 		}
 	]

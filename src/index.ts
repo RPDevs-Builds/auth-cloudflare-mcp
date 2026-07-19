@@ -9,19 +9,19 @@ export class MyMCP extends McpAgent {
 	});
 
 	// 🛡️ SECURITY GATEWAY: Intercept requests before they hit the MCP engine
-	async fetch(request: Request) {
-		const url = new URL(request.url);
-		const token = url.searchParams.get("token");
-
-		// Compare the incoming token to your Cloudflare encrypted secret
-		// @ts-ignore - Bypass strict TS if Env is not fully mapped in worker-configuration.d.ts
-		if (token !== this.env.MCP_SECRET_KEY) {
-			return new Response("Unauthorized: Invalid or missing token", { status: 401 });
-		}
-
-		// If authorized, pass the request to the underlying MCP Agent handler
-		return super.fetch(request);
-	}
+//	async fetch(request: Request) {
+//		const url = new URL(request.url);
+//		const token = url.searchParams.get("token");
+//
+//		// Compare the incoming token to your Cloudflare encrypted secret
+//		// @ts-ignore - Bypass strict TS if Env is not fully mapped in worker-configuration.d.ts
+//		if (token !== this.env.MCP_SECRET_KEY) {
+//			return new Response("Unauthorized: Invalid or missing token", { status: 401 });
+//		}
+//
+//		// If authorized, pass the request to the underlying MCP Agent handler
+//		return super.fetch(request);
+//	}
 
 	async init() {
 		// Simple addition tool
