@@ -41,7 +41,9 @@ export class MyMCP extends McpAgent {
 		this.server.registerTool(
 			"add",
 			{ inputSchema: { a: z.number(), b: z.number() } },
-			async ({ a, b }) => ({\n\t\t\t\tcontent: [{ type: "text", text: String(a + b) }],\n\t\t\t}),
+			async ({ a, b }) => ({
+				content: [{ type: "text", text: String(a + b) }],
+			})
 		);
 
 		this.server.registerTool(
