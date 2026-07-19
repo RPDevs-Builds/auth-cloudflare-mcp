@@ -2,38 +2,51 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpAgent } from "agents/mcp";
 import { z } from "zod";
 
-// 1. Define the Durable Object Agent
 export class MyMCP extends McpAgent {
 	server = new McpServer({
 		name: "Secure Edge Calculator",
 		version: "1.0.0",
 	});
 
-	// 🛡️ OAUTH RESOURCE SERVER: Intercept and Validate the JWT
+	// 🛡️ OAUTH RESOURCE SERVER
 	async fetch(request: Request) {
+		// 1. Bypass Auth for CORS Preflight (OPTIONS requests have no tokens)
+		if (request.method === "OPTIONS") {
+			return super.fetch(request);
+		}
+
 		const authHeader = request.headers.get("Authorization");
 
-		// 1. Ensure the request has a Bearer token
+		// 2. Require Bearer Token & inject Google's mandatory WWW-Authenticate header
 		if (!authHeader || !authHeader.startsWith("Bearer ")) {
-			return new Response("Unauthorized: Missing Bearer Token", { status: 401 });
+			return new Response("Unauthorized: Missing Bearer Token", { 
+				status: 401,
+				headers: {
+					"WWW-Authenticate": "Bearer realm=\"mcp-server\""
+				}
+			});
 		}
 
 		const token = authHeader.split(" ")[1];
 
-		// 2. Ping your T430 Authentik instance to validate the token
-		// NOTE: Change 'auth.iamrp.dev' if your external Authentik URL differs
+		// 3. Ping your T430 Authentik instance to validate the token
 		const authCheck = await fetch("https://auth.iamrp.dev/application/o/userinfo/", {
 			headers: {
 				"Authorization": `Bearer ${token}`
 			}
 		});
 
-		// 3. Reject the request if Authentik says the token is invalid or expired
+		// 4. Reject the request if Authentik says the token is invalid or expired
 		if (!authCheck.ok) {
-			return new Response("Unauthorized: OAuth Token rejected by Authentik", { status: 403 });
+			return new Response("Unauthorized: OAuth Token rejected by Authentik", { 
+				status: 401, 
+				headers: {
+					"WWW-Authenticate": "Bearer error=\"invalid_token\""
+				}
+			});
 		}
 
-		// 4. If authorized, pass the request to the underlying MCP Engine
+		// 5. If authorized, pass the request to the underlying MCP Engine
 		return super.fetch(request);
 	}
 
@@ -78,10 +91,9 @@ export class MyMCP extends McpAgent {
 	}
 }
 
-// 2. 🚀 ES MODULE ENTRYPOINT 🚀
+// 🚀 ES MODULE ENTRYPOINT
 export default {
 	async fetch(request: Request, env: any, ctx: any) {
-		// Route the incoming HTTP request from the Edge directly to the Durable Object
 		const id = env.MCP_OBJECT.idFromName("default-agent");
 		const stub = env.MCP_OBJECT.get(id);
 		return stub.fetch(request);
